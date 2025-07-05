@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatCoin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #102F47;
+      color: white;
+      padding-top: 80px;
+      text-align: center;
+    }
+
+    header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: #102F47;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      text-align: center;
+      z-index: 1000;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    #balance {
+      font-size: 36px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+
+    #status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    button {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      background: rgba(14, 39, 58, 0.8);
+      backdrop-filter: blur(5px);
+      z-index: 10;
+      padding: 10px 0;
+    }
+
+    footer button {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 24px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<header>🪙 ChatCoin</header>
+
+<div>
+  <div>Sizning balansingiz:</div>
+  <div id="balance">Yuklanmoqda...</div>
+  <button id="mineBtn" onclick="mineCoin()">⛏️ Mine</button>
+  <div id="status"></div>
+</div>
+
+<footer>
+  <button onclick="location.href='chats.html'">🏠</button>
+  <button onclick="location.href='coin-stats.html'">📊</button>
+  <button onclick="location.href='coin-profile.html'">👤</button>
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+  import { getDatabase, ref, get, set, update } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyABiPW3t0cqXydjnIGMa7d0dLU1noWj7wk",
+    authDomain: "mychatapp-5196e.firebaseapp.com",
+    databaseURL: "https://mychatapp-5196e-default-rtdb.firebaseio.com",
+    projectId: "mychatapp-5196e",
+    storageBucket: "mychatapp-5196e.appspot.com",
+    messagingSenderId: "882541849500",
+    appId: "1:882541849500:web:2f1bfa172ece503debf659"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  const balanceDiv = document.getElementById("balance");
+  const mineBtn = document.getElementById("mineBtn");
+  const statusDiv = document.getElementById("status");
+
+  let currentUser = null;
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return window.location.href = "auth.html";
+    currentUser = user;
+    loadBalance();
+  });
+
+  async function loadBalance() {
+    const refPath = ref(db, "coins/" + currentUser.uid);
+    const snap = await get(refPath);
+    if (snap.exists()) {
+      const data = snap.val();
+      balanceDiv.textContent = data.balance + " 🪙";
+
+      const now = Date.now();
+      const nextMine = data.lastMined || 0;
+      const remaining = nextMine + 4 * 60 * 60 * 1000 - now;
+
+      if (remaining > 0) {
+        mineBtn.disabled = true;
+        const minutes = Math.ceil(remaining / 60000);
+        statusDiv.textContent = `⏳ ${minutes} daqiqadan so‘ng yana mine qilish mumkin`;
+      } else {
+        mineBtn.disabled = false;
+        statusDiv.textContent = "✅ Yangi mine qilishga tayyor!";
+      }
+
+    } else {
+      // Birinchi marta
+      await set(refPath, { balance: 0, lastMined: 0 });
+      balanceDiv.textContent = "0 🪙";
+      statusDiv.textContent = "⛏️ Miningga tayyor!";
+    }
+  }
+
+  async function mineCoin() {
+    mineBtn.disabled = true;
+    statusDiv.textContent = "⛏️ Mining qilinyapti...";
+
+    const refPath = ref(db, "coins/" + currentUser.uid);
+    const snap = await get(refPath);
+    const data = snap.val() || { balance: 0, lastMined: 0 };
+
+    const now = Date.now();
+    const canMine = now > (data.lastMined + 4 * 60 * 60 * 1000);
+
+    if (!canMine) {
+      alert("⏱ Yana 4 soatdan keyin mining qilishingiz mumkin.");
+      return loadBalance();
+    }
+
+    const newBalance = (data.balance || 0) + 1;
+    await update(refPath, {
+      balance: newBalance,
+      lastMined: now
+    });
+
+    statusDiv.textContent = "✅ 1 ChatCoin qo‘shildi!";
+    balanceDiv.textContent = newBalance + " 🪙";
+  }
+</script>
+
+</body>
+</html>

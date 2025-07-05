@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatCoin Statistikasi</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #102F47;
+      color: #fff;
+      padding: 20px;
+    }
+    header {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    .user-item {
+      background: #1a4a6a;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+    }
+    .user-item strong {
+      color: #FFD700;
+    }
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 15px;
+      background: #fff;
+      color: #102F47;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+<a class="back-btn" href="chatcoin.html">⬅ Orqaga</a>
+<header>🏆 Eng ko‘p ChatCoin egalari</header>
+<div id="statsList">Yuklanmoqda...</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyABiPW3t0cqXydjnIGMa7d0dLU1noWj7wk",
+    authDomain: "mychatapp-5196e.firebaseapp.com",
+    databaseURL: "https://mychatapp-5196e-default-rtdb.firebaseio.com",
+    projectId: "mychatapp-5196e",
+    storageBucket: "mychatapp-5196e.appspot.com",
+    messagingSenderId: "882541849500",
+    appId: "1:882541849500:web:2f1bfa172ece503debf659"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const statsDiv = document.getElementById("statsList");
+
+  async function loadStats() {
+    const refPath = ref(db, "chatcoins");
+    const snapshot = await get(refPath);
+    if (!snapshot.exists()) {
+      statsDiv.innerHTML = "Hech qanday ma'lumot yo‘q.";
+      return;
+    }
+
+    const coins = snapshot.val();
+    const entries = Object.entries(coins);
+    const sorted = entries.sort((a, b) => (b[1].balance || 0) - (a[1].balance || 0)).slice(0, 10);
+
+    statsDiv.innerHTML = "";
+    sorted.forEach(([uid, data], index) => {
+      statsDiv.innerHTML += `
+        <div class="user-item">
+          <strong>#${index + 1}</strong> ${data.username || uid}<br>
+          💰 ${data.balance || 0} ChatCoin
+        </div>
+      `;
+    });
+  }
+
+  loadStats();
+</script>
+
+</body>
+</html>

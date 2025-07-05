@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mening ChatCoin Profilim</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #102F47;
+      color: #fff;
+      padding: 20px;
+    }
+
+    header {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    .section {
+      background: #1a4a6a;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .section input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: none;
+      font-size: 16px;
+    }
+
+    .section button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 10px;
+      background: #FFD700;
+      color: #102F47;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .back-btn {
+      display: inline-block;
+      margin-bottom: 15px;
+      background: #fff;
+      color: #102F47;
+      padding: 8px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: lightgreen;
+    }
+  </style>
+</head>
+<body>
+
+<a class="back-btn" href="chatcoin.html">⬅ Orqaga</a>
+<header>👤 ChatCoin Profil</header>
+
+<div class="section">
+  <p><strong>💰 Balans:</strong> <span id="balance">Yuklanmoqda...</span></p>
+</div>
+
+<div class="section">
+  <h3>💸 Coin jo‘natish</h3>
+  <input type="text" id="toUsername" placeholder="Qabul qiluvchi username (masalan: uzboy123)" />
+  <input type="number" id="amount" placeholder="Necha coin?" />
+  <button onclick="sendCoin()">Jo‘natish</button>
+  <div id="status"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+  import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyABiPW3t0cqXydjnIGMa7d0dLU1noWj7wk",
+    authDomain: "mychatapp-5196e.firebaseapp.com",
+    databaseURL: "https://mychatapp-5196e-default-rtdb.firebaseio.com",
+    projectId: "mychatapp-5196e",
+    storageBucket: "mychatapp-5196e.appspot.com",
+    messagingSenderId: "882541849500",
+    appId: "1:882541849500:web:2f1bfa172ece503debf659"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+
+  let currentUser = null;
+  let currentUsername = "";
+  let currentBalance = 0;
+
+  const balanceEl = document.getElementById("balance");
+  const statusEl = document.getElementById("status");
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      const snap = await get(ref(db, "users/" + user.uid));
+      if (snap.exists()) {
+        currentUsername = snap.val().username;
+        loadBalance();
+      }
+    } else {
+      window.location.href = "auth.html";
+    }
+  });
+
+  async function loadBalance() {
+    const refPath = ref(db, "chatcoins/" + currentUser.uid);
+    const snap = await get(refPath);
+    const data = snap.exists() ? snap.val() : {};
+    currentBalance = data.balance || 0;
+    balanceEl.textContent = currentBalance + " Coin";
+  }
+
+  window.sendCoin = async function () {
+    const toUser = document.getElementById("toUsername").value.trim().toLowerCase();
+    const amount = parseInt(document.getElementById("amount").value);
+
+    if (!toUser || !amount || amount <= 0) {
+      statusEl.textContent = "❗ To‘g‘ri username va miqdor kiriting.";
+      statusEl.style.color = "orange";
+      return;
+    }
+
+    if (amount > currentBalance) {
+      statusEl.textContent = "❗ Sizda yetarli coin yo‘q.";
+      statusEl.style.color = "red";
+      return;
+    }
+
+    // Qabul qiluvchini topamiz
+    const usersSnap = await get(ref(db, "users"));
+    let toUid = null;
+
+    if (usersSnap.exists()) {
+      const users = usersSnap.val();
+      for (const uid in users) {
+        if (users[uid].username.toLowerCase() === toUser) {
+          toUid = uid;
+          break;
+        }
+      }
+    }
+
+    if (!toUid) {
+      statusEl.textContent = "❗ Qabul qiluvchi topilmadi.";
+      statusEl.style.color = "red";
+      return;
+    }
+
+    // Qabul qiluvchi coinini yangilash
+    const toRef = ref(db, "chatcoins/" + toUid);
+    const toSnap = await get(toRef);
+    const toBalance = toSnap.exists() ? toSnap.val().balance || 0 : 0;
+    await set(toRef, {
+      username: toUser,
+      balance: toBalance + amount
+    });
+
+    // Sender balansini kamaytirish
+    await set(ref(db, "chatcoins/" + currentUser.uid), {
+      username: currentUsername,
+      balance: currentBalance - amount
+    });
+
+    statusEl.style.color = "lightgreen";
+    statusEl.textContent = `✅ ${amount} Coin @${toUser} foydalanuvchisiga yuborildi!`;
+    loadBalance();
+  };
+</script>
+
+</body>
+</html>
